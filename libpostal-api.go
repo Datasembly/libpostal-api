@@ -31,9 +31,9 @@ func main() {
   listenSpec := fmt.Sprintf("%s:%s", host, port)
 
   router := mux.NewRouter()
-  router.HandleFunc("/health", HealthHandler).Methods("GET")
-  router.HandleFunc("/expand", ExpandHandler).Methods("POST")
-  router.HandleFunc("/parse", ParseHandler).Methods("POST")
+  router.HandleFunc("/libpostal/health", HealthHandler).Methods("GET")
+  router.HandleFunc("/libpostal/expand", ExpandHandler).Methods("POST")
+  router.HandleFunc("/libpostal/parse", ParseHandler).Methods("POST")
 
   s := &http.Server{Addr: listenSpec, Handler: router}
   go func() {
@@ -62,7 +62,16 @@ func ExpandHandler(w http.ResponseWriter, r *http.Request) {
   var req Request
 
   q, _ := ioutil.ReadAll(r.Body)
-  json.Unmarshal(q, &req)
+  errUnmarsh := json.Unmarshal(q, &req)
+  if errUnmarsh != nil {
+    http.Error(w, "Error: Expected JSON body", 500)
+    return
+  }
+
+  if req.Query == "" {
+    http.Error(w, "Error: Query not present in body.", 500)
+    return
+  }
 
   expansions := expand.ExpandAddress(req.Query)
 
@@ -76,9 +85,19 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
   var req Request
 
   q, _ := ioutil.ReadAll(r.Body)
-  json.Unmarshal(q, &req)
+  errUnmarsh := json.Unmarshal(q, &req)
+  if errUnmarsh != nil {
+    http.Error(w, "Error: Expected JSON body", 500)
+    return
+  }
+
+  if req.Query == "" {
+    http.Error(w, "Error: Query not present in body.", 500)
+    return
+  }
 
   parsed := parser.ParseAddress(req.Query)
+
   parseThing, _ := json.Marshal(parsed)
   w.Write(parseThing)
 }
